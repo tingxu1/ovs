@@ -39,6 +39,12 @@ typedef enum switch_pv4_table_action_s
   SWITCH_ACTION_NONE = 2
 }switch_ipv4_table_action_t;
 
+typedef enum switch_route_v4_table_action_s
+{
+  SWITCH_ACTION_FORWARD_V4 = 0,
+  SWITCH_ACTION_LOCAL_IN_V4 = 1,
+}switch_route_v4_table_action_t;
+
 /**
  * create pd_routing structure to hold
  * the data to be sent to
@@ -90,6 +96,10 @@ switch_status_t switch_routing_table_entry (
 switch_status_t switch_pd_handle_member(switch_device_t device,
     const switch_nhop_member_t *nhop_member_pd_info,
     bool entry_add);
+
+switch_status_t switch_pd_srv6_ipv4_table_entry (switch_device_t device,
+    const switch_api_route_entry_t *api_route_entry,
+    bool entry_add, switch_route_v4_table_action_t action);
 
 switch_status_t switch_pd_handle_group(switch_device_t device,
     switch_nhop_group_info_t *nhop_group_pd_info,
