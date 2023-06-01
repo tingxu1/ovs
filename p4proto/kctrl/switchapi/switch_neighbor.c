@@ -177,13 +177,16 @@ switch_status_t switch_api_neighbor_create(
       pd_neighbor_info.nexthop_handle = nhop_handle;
 
       /*get rif_info to access port_id */
+      VLOG_DBG("neighbor rif handle is 0x%x \n", api_neighbor_info->rif_handle);
       pd_neighbor_info.rif_handle = api_neighbor_info->rif_handle;
       status = switch_rif_get(device, pd_neighbor_info.rif_handle, &rif_info);
       CHECK_RET(status != SWITCH_STATUS_SUCCESS, status);
-      if (rif_info->api_rif_info.phy_port_id == -1) {
+      VLOG_DBG("rif info phy port id is %u \n", rif_info->api_rif_info.phy_port_id);
+      if (rif_info->api_rif_info.phy_port_id == -1)
         switch_pd_to_get_port_id(&(rif_info->api_rif_info));
-      }
-      pd_neighbor_info.port_id = rif_info->api_rif_info.phy_port_id;
+      pd_neighbor_info.port_id = rif_info->api_rif_info.port_id;
+      pd_neighbor_info.phy_port_id = rif_info->api_rif_info.phy_port_id;
+      VLOG_DBG("pd neighbor port id is %u, phy port id is %u \n", pd_neighbor_info.port_id, pd_neighbor_info.phy_port_id);
 
       SWITCH_MEMCPY(&pd_neighbor_info.dst_mac_addr,
                     &api_neighbor_info->mac_addr, sizeof(switch_mac_addr_t));

@@ -137,6 +137,7 @@ switch_status_t switch_api_rif_create(
 
   status = switch_rif_get(device, *rif_handle, &rif_info);
   CHECK_RET(status != SWITCH_STATUS_SUCCESS, status);
+  VLOG_DBG("rif_handle is %u \n", *rif_handle);
 
   /* When multipipe support is available in P4-OVS, make port_id as 
    * in_port_id and out_port_id. Use accordingly for respective pipelines. */
@@ -144,6 +145,7 @@ switch_status_t switch_api_rif_create(
   api_rif_info->phy_port_id = -1;
 
   switch_pd_to_get_port_id(api_rif_info);
+  VLOG_DBG("port id is %u, phy port id is %u \n", api_rif_info->port_id, api_rif_info->phy_port_id);
 
   SWITCH_MEMCPY(&rif_info->api_rif_info,
                 api_rif_info,

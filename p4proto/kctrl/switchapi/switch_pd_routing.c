@@ -34,6 +34,7 @@
 #include "switch_pd_utils.h"
 #include "switch_pd_p4_name_mapping.h"
 #include "../switchlink/switchlink_db.h"
+#include "switch_rif_int.h"
 
 VLOG_DEFINE_THIS_MODULE(switch_pd_routing);
 
@@ -1605,7 +1606,9 @@ switch_status_t switch_pd_srv6_ipv4_table_entry (switch_device_t device,
 
     switchlink_db_route_info_t route_info;
     switchlink_db_status_t ret;
-    uint32_t intf_mask = 0xff;
+    switch_status_t ret_val = SWITCH_STATUS_SUCCESS;
+    switch_rif_info_t *rif_info = NULL;
+    uint32_t phy_port_id;
     uint32_t port_id;
 
     VLOG_DBG("%s", __func__);
@@ -1643,7 +1646,12 @@ switch_status_t switch_pd_srv6_ipv4_table_entry (switch_device_t device,
                  route_info.vrf_h, route_info.ip_addr.ip.v4addr.s_addr);
         goto dealloc_handle_session;
     }
-    port_id = (route_info.intf_h & intf_mask) - 1;
+
+    VLOG_DBG("intf_h is %u \n", route_info.intf_h);
+    ret_val = switch_rif_get(device, route_info.intf_h, &rif_info);
+    CHECK_RET(ret_val != SWITCH_STATUS_SUCCESS, ret_val);
+    port_id = rif_info->api_rif_info.port_id;
+    phy_port_id = rif_info->api_rif_info.phy_port_id;
 
     status = tdi_info_get(dev_id, PROGRAM_NAME, &info_hdl);
     if (status != TDI_SUCCESS) {
@@ -1754,7 +1762,7 @@ switch_status_t switch_pd_srv6_ipv4_table_entry (switch_device_t device,
                          data_field_id, status);
                 goto dealloc_handle_session;
             }
-            VLOG_INFO("Successfully set local_in_v4 port id %d", port_id);
+            VLOG_INFO("Successfully set local_in_v4 port id %d (%d)", port_id, phy_port_id);
         }
 
         status = tdi_table_entry_add(table_hdl, session, target_hdl,
@@ -1805,8 +1813,8 @@ switch_status_t switch_pd_route_forward_v4_table_entry(
     const tdi_table_hdl *table_hdl = NULL;
     const tdi_table_info_hdl *table_info_hdl = NULL;
     uint32_t network_byte_order;
-    uint32_t rif_mask = 0xff;
     uint32_t port_id;
+    uint32_t phy_port_id;
 
     VLOG_DBG("%s", __func__);
 
@@ -1814,7 +1822,8 @@ switch_status_t switch_pd_route_forward_v4_table_entry(
     memset(&nexthop_info, 0, sizeof(switchlink_db_nexthop_info_t));
     status = switchlink_db_nexthop_handle_get_info(api_nexthop_pd_info->nexthop_handle,
                                                    &nexthop_info);
-    port_id = (api_nexthop_pd_info->rif_handle & rif_mask) - 1;
+    port_id = api_nexthop_pd_info->port_id;
+    phy_port_id = api_nexthop_pd_info->phy_port_id;
 
     status = tdi_flags_create(0, &flags_hdl);
     if (status != TDI_SUCCESS) {
@@ -1909,28 +1918,6 @@ switch_status_t switch_pd_route_forward_v4_table_entry(
         }
 
         status = tdi_data_field_id_with_action_get(table_info_hdl,
-                                                   SRV6_ACTION_FORWARD_V4_PARAM_DST_MAC,
-                                                   action_id, &data_field_id);
-        if (status != TDI_SUCCESS) {
-            VLOG_ERR("Unable to get data field id param for: %s, error: %d",
-                     SRV6_ACTION_FORWARD_V4_PARAM_DST_MAC, status);
-            goto dealloc_handle_session;
-        }
-
-        status = tdi_data_field_set_value_ptr(data_hdl, data_field_id,
-                                              (const uint8_t *)
-                                              &api_nexthop_pd_info->dst_mac_addr.mac_addr,
-                                              SWITCH_MAC_LENGTH);
-        if (status != TDI_SUCCESS) {
-            VLOG_ERR("Unable to set action value for ID: %d, error: %d",
-                     data_field_id, status);
-            goto dealloc_handle_session;
-        }
-        VLOG_INFO("Successfully add mac: %x:%x:%x:%x:%x:%x", api_nexthop_pd_info->dst_mac_addr.mac_addr[0], api_nexthop_pd_info->dst_mac_addr.mac_addr[1],
-                                                             api_nexthop_pd_info->dst_mac_addr.mac_addr[2], api_nexthop_pd_info->dst_mac_addr.mac_addr[3],
-                                                             api_nexthop_pd_info->dst_mac_addr.mac_addr[4], api_nexthop_pd_info->dst_mac_addr.mac_addr[5]);
-
-        status = tdi_data_field_id_with_action_get(table_info_hdl,
                                                    SRV6_ACTION_FORWARD_V4_PARAM_PORT,
                                                    action_id, &data_field_id);
         if (status != TDI_SUCCESS) {
@@ -1946,7 +1933,7 @@ switch_status_t switch_pd_route_forward_v4_table_entry(
                      data_field_id, status);
             goto dealloc_handle_session;
         }
-        VLOG_INFO("Successfully add port id %u", port_id);
+        VLOG_INFO("Successfully add port id %d (%d)", port_id, phy_port_id);
 
         status = tdi_table_entry_add(table_hdl, session, target_hdl,
                                      flags_hdl, key_hdl, data_hdl);
