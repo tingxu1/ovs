@@ -144,6 +144,7 @@ switch_status_t switch_api_rif_create(
   api_rif_info->phy_port_id = -1;
 
   switch_pd_to_get_port_id(api_rif_info);
+  VLOG_DBG("port id is %u, phy port id is %u \n", api_rif_info->port_id, api_rif_info->phy_port_id);
 
   SWITCH_MEMCPY(&rif_info->api_rif_info,
                 api_rif_info,

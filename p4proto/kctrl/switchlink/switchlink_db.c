@@ -509,6 +509,8 @@ switchlink_db_status_t switchlink_db_neighbor_add(
 
 switchlink_db_status_t switchlink_db_neighbor_get_info(
     switchlink_db_neigh_info_t *neigh_info) {
+  if (!neigh_info)
+    return SWITCHLINK_DB_STATUS_ITEM_NOT_FOUND;
   tommy_node *node = tommy_list_head(&switchlink_db_neigh_obj_list);
   while (node) {
     switchlink_db_neigh_obj_t *obj = node->data;
@@ -518,10 +520,8 @@ switchlink_db_status_t switchlink_db_neighbor_get_info(
                 sizeof(switchlink_ip_addr_t)) == 0) &&
         (neigh_info->vrf_h == obj->neigh_info.vrf_h) &&
         (neigh_info->intf_h == obj->neigh_info.intf_h)) {
-      if (neigh_info) {
-        memcpy(
-            neigh_info, &(obj->neigh_info), sizeof(switchlink_db_neigh_info_t));
-      }
+      memcpy(
+          neigh_info, &(obj->neigh_info), sizeof(switchlink_db_neigh_info_t));
       return SWITCHLINK_DB_STATUS_SUCCESS;
     }
   }
@@ -747,6 +747,8 @@ switchlink_db_status_t switchlink_db_ecmp_add(
 
 switchlink_db_status_t switchlink_db_ecmp_get_info(
     switchlink_db_ecmp_info_t *ecmp_info) {
+  if (!ecmp_info)
+    return SWITCHLINK_DB_STATUS_ITEM_NOT_FOUND;
   tommy_node *node = tommy_list_head(&switchlink_db_ecmp_obj_list);
   while (node) {
     switchlink_db_ecmp_obj_t *obj = node->data;
@@ -765,9 +767,7 @@ switchlink_db_status_t switchlink_db_ecmp_get_info(
           return SWITCHLINK_DB_STATUS_ITEM_NOT_FOUND;
         }
       }
-      if (ecmp_info) {
-        memcpy(ecmp_info, &(obj->ecmp_info), sizeof(switchlink_db_ecmp_info_t));
-      }
+      memcpy(ecmp_info, &(obj->ecmp_info), sizeof(switchlink_db_ecmp_info_t));
       return SWITCHLINK_DB_STATUS_SUCCESS;
     }
   }
@@ -942,6 +942,8 @@ switchlink_db_status_t switchlink_db_route_delete(
 
 switchlink_db_status_t switchlink_db_route_get_info(
     switchlink_db_route_info_t *route_info) {
+  if (!route_info)
+    return SWITCHLINK_DB_STATUS_ITEM_NOT_FOUND;
   tommy_node *node = tommy_list_head(&switchlink_db_route_obj_list);
   while (node) {
     switchlink_db_route_obj_t *obj = node->data;
@@ -950,10 +952,8 @@ switchlink_db_status_t switchlink_db_route_get_info(
         (memcmp(&(obj->route_info.ip_addr),
                 &(route_info->ip_addr),
                 sizeof(switchlink_ip_addr_t)) == 0)) {
-      if (route_info) {
-        memcpy(
-            route_info, &(obj->route_info), sizeof(switchlink_db_route_info_t));
-      }
+      memcpy(
+          route_info, &(obj->route_info), sizeof(switchlink_db_route_info_t));
       return SWITCHLINK_DB_STATUS_SUCCESS;
     }
   }
@@ -962,16 +962,16 @@ switchlink_db_status_t switchlink_db_route_get_info(
 
 switchlink_db_status_t switchlink_db_route_ip_get_info(
     uint32_t ip_addr, switchlink_db_route_info_t *route_info) {
+  if (!route_info)
+    return SWITCHLINK_DB_STATUS_ITEM_NOT_FOUND;
   tommy_node *node = tommy_list_head(&switchlink_db_route_obj_list);
   while (node) {
     switchlink_db_route_obj_t *obj = node->data;
     node = node->next;
     if ((obj->route_info.vrf_h == route_info->vrf_h) &&
         (ntohl(obj->route_info.ip_addr.ip.v4addr.s_addr) == ip_addr)) {
-      if (route_info) {
-        memcpy(
-            route_info, &(obj->route_info), sizeof(switchlink_db_route_info_t));
-      }
+      memcpy(
+          route_info, &(obj->route_info), sizeof(switchlink_db_route_info_t));
       return SWITCHLINK_DB_STATUS_SUCCESS;
     }
   }
@@ -980,19 +980,19 @@ switchlink_db_status_t switchlink_db_route_ip_get_info(
 
 switchlink_db_status_t switchlink_db_route_ip6_get_info(
     uint32_t *ip_addr, switchlink_db_route_info_t *route_info) {
+  if (!route_info)
+    return SWITCHLINK_DB_STATUS_ITEM_NOT_FOUND;
   tommy_node *node = tommy_list_head(&switchlink_db_route_obj_list);
   while (node) {
     switchlink_db_route_obj_t *obj = node->data;
     node = node->next;
     if ((obj->route_info.vrf_h == route_info->vrf_h) &&
-        (ntohl(obj->route_info.ip_addr.ip.v6addr.s6_addr32[0]) == ip_addr[0]) &&
-        (ntohl(obj->route_info.ip_addr.ip.v6addr.s6_addr32[1]) == ip_addr[1]) &&
-        (ntohl(obj->route_info.ip_addr.ip.v6addr.s6_addr32[2]) == ip_addr[2]) &&
-        (ntohl(obj->route_info.ip_addr.ip.v6addr.s6_addr32[3]) == ip_addr[3])) {
-      if (route_info) {
-        memcpy(
-            route_info, &(obj->route_info), sizeof(switchlink_db_route_info_t));
-      }
+        (obj->route_info.ip_addr.ip.v6addr.s6_addr32[0] == ip_addr[0]) &&
+        (obj->route_info.ip_addr.ip.v6addr.s6_addr32[1] == ip_addr[1]) &&
+        (obj->route_info.ip_addr.ip.v6addr.s6_addr32[2] == ip_addr[2]) &&
+        (obj->route_info.ip_addr.ip.v6addr.s6_addr32[3] == ip_addr[3])) {
+      memcpy(
+          route_info, &(obj->route_info), sizeof(switchlink_db_route_info_t));
       return SWITCHLINK_DB_STATUS_SUCCESS;
     }
   }

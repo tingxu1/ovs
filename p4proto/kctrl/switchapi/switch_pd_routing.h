@@ -66,6 +66,7 @@ typedef struct switch_pd_routing_info_s
   switch_mac_addr_t dst_mac_addr;
 
   switch_port_t port_id;
+  switch_port_t phy_port_id;
 
 } switch_pd_routing_info_t;
 

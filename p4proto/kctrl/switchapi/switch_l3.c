@@ -408,6 +408,23 @@ switch_status_t switch_api_l3_route_add(
         return status;
     }
     api_route_entry->nhop_member_handle = nhop_member->member_handle;
+
+    if (api_route_entry->ip_address.type == 0) {
+      status = switch_pd_srv6_ipv4_table_entry(device, api_route_entry, true,
+                                              SWITCH_ACTION_FORWARD_V4);
+      if(status != SWITCH_STATUS_SUCCESS) {
+        VLOG_ERR("route_v4 table forward_v4 update failed");
+        return status;
+      }
+    } else if (api_route_entry->ip_address.type == 1) {
+      status = switch_pd_srv6_ipv6_table_entry(device, api_route_entry, true,
+                                              SWITCH_ACTION_FORWARD_V6);
+      if(status != SWITCH_STATUS_SUCCESS) {
+        VLOG_ERR("route_v6 table forward_v6 update failed");
+        return status;
+      }
+    }
+
     status = switch_pd_ipv4_table_entry(device, api_route_entry, true,
                                         SWITCH_ACTION_NHOP);
     if (status != SWITCH_STATUS_SUCCESS) {
@@ -417,6 +434,22 @@ switch_status_t switch_api_l3_route_add(
     }
   } else if (switch_handle_type_get(api_route_entry->nhop_handle) ==
                                    SWITCH_HANDLE_TYPE_NHOP_GROUP) {
+
+    if (api_route_entry->ip_address.type == 0) {
+      status = switch_pd_srv6_ipv4_table_entry(device, api_route_entry, true,
+                                              SWITCH_ACTION_FORWARD_V4);
+      if(status != SWITCH_STATUS_SUCCESS) {
+        VLOG_ERR("route_v4 table forward_v4 update failed");
+        return status;
+      }
+    } else if (api_route_entry->ip_address.type == 1) {
+      status = switch_pd_srv6_ipv6_table_entry(device, api_route_entry, true,
+                                              SWITCH_ACTION_FORWARD_V6);
+      if(status != SWITCH_STATUS_SUCCESS) {
+        VLOG_ERR("route_v6 table forward_v6 update failed");
+        return status;
+      }
+    }
 
     status = switch_pd_ipv4_table_entry(device, api_route_entry, true,
                                         SWITCH_ACTION_NHOP_GROUP);
@@ -429,14 +462,14 @@ switch_status_t switch_api_l3_route_add(
     status = switch_pd_srv6_ipv4_table_entry(device, api_route_entry, true,
                                              SWITCH_ACTION_LOCAL_IN_V4);
     if(status != SWITCH_STATUS_SUCCESS) {
-      VLOG_ERR("bgp_vxlan_srv6 route_v4 table update failed");
+      VLOG_ERR("route_v4 table local_in_v4 update failed");
       return status;
     }
   } else if (api_route_entry->ip_address.type == 1 && api_route_entry->ip_address.prefix_len > 32){
     status = switch_pd_srv6_ipv6_table_entry(device, api_route_entry, true,
                                              SWITCH_ACTION_LOCAL_IN_V6);
     if(status != SWITCH_STATUS_SUCCESS) {
-      VLOG_ERR("bgp_vxlan_srv6 route_v6 table update failed");
+      VLOG_ERR("route_v6 table local_in_v6 update failed");
       return status;
     }
   }
