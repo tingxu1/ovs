@@ -45,6 +45,12 @@ typedef enum switch_route_v4_table_action_s
   SWITCH_ACTION_LOCAL_IN_V4 = 1,
 }switch_route_v4_table_action_t;
 
+typedef enum switch_route_v6_table_action_s
+{
+  SWITCH_ACTION_FORWARD_V6 = 0,
+  SWITCH_ACTION_LOCAL_IN_V6 = 1,
+}switch_route_v6_table_action_t;
+
 /**
  * create pd_routing structure to hold
  * the data to be sent to
@@ -73,6 +79,11 @@ switch_status_t switch_pd_route_forward_v4_table_entry(
     const switch_pd_routing_info_t  *api_nexthop_pd_info,
     bool entry_add);
 
+switch_status_t switch_pd_route_forward_v6_table_entry(
+    switch_device_t device,
+    const switch_pd_routing_info_t  *api_nexthop_pd_info,
+    bool entry_add);
+
 switch_status_t switch_pd_neighbor_table_entry(
     switch_device_t device,
     const switch_pd_routing_info_t  *api_neighbor_pd_info,
@@ -97,7 +108,9 @@ switch_status_t switch_routing_table_entry (
         switch_device_t device,
         const switch_pd_routing_info_t *api_routing_info,
         bool entry_type);
-
+switch_status_t switch_pd_srv6_ipv6_table_entry (switch_device_t device,
+    const switch_api_route_entry_t *api_route_entry,
+    bool entry_add, switch_route_v6_table_action_t action);
 switch_status_t switch_pd_handle_member(switch_device_t device,
     const switch_nhop_member_t *nhop_member_pd_info,
     bool entry_add);

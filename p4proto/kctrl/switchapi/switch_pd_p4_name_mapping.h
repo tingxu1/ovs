@@ -178,6 +178,23 @@ extern "C" {
 #define LNW_ACTION_ECMP_HASH_ACTION_PARAM_ECMP_GROUP_ID \
         "ecmp_group_id"
 
+#define SRV6_ROUTE_V6_TABLE \
+        "ingress.route_v6_table"
+#define SRV6_ROUTE_V6_TABLE_KEY_IPV6_DST \
+        "hdr.outer_ipv6.dst_addr_l"
+#define SRV6_ROUTE_V6_TABLE_ACTION_FORWARD_V6 \
+        "ingress.forward_v6"
+#define SRV6_ROUTE_V6_TABLE_ACTION_LOCAL_IN_V6 \
+        "ingress.local_in_v6"
+#define SRV6_ACTION_FORWARD_V6_PARAM_DST_MAC \
+        "next_hop"
+#define SRV6_ACTION_FORWARD_V6_PARAM_PORT \
+        "port"
+#define SRV6_ACTION_LOCAL_IN_V6_PARAM_DST_MAC \
+        "dst_mac"
+#define SRV6_ACTION_LOCAL_IN_V6_PARAM_PORT \
+        "port"
+
 /* AS_ECMP_TABLE */
 #define LNW_AS_ECMP_TABLE \
         "linux_networking_control.as_ecmp"

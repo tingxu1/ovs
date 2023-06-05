@@ -400,10 +400,6 @@ void process_route_msg(struct nlmsghdr *nlmsg, int type) {
     af = rmsg->rtm_family;
   }
 
-  if (af == AF_INET6) {
-    VLOG_DBG("Ignoring IPv6 routes, as supported is not available");
-    return;
-  }
 
   if ((af != AF_INET) && (af != AF_INET6)) {
     return;

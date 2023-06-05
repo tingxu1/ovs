@@ -53,6 +53,13 @@ switch_status_t switch_routing_table_entry (
      return status;
   }
 
+  //update route_v6 table
+  status = switch_pd_route_forward_v6_table_entry(device, api_routing_info, entry_type);
+  if (status != SWITCH_STATUS_SUCCESS){
+     VLOG_ERR("route_v6 table update failed, error: %d", status);
+     return status;
+  }
+
   //update nexthop table
   status = switch_pd_nexthop_table_entry(device, api_routing_info, entry_type);
   if (status != SWITCH_STATUS_SUCCESS){
@@ -1581,6 +1588,404 @@ switch_status_t switch_pd_route_forward_v4_table_entry(
   }
 
 dealloc_handle_session:
+    status = tdi_switch_pd_deallocate_resources(flags_hdl, target_hdl,
+                                                key_hdl, data_hdl,
+                                                session, entry_add);
+    return switch_pd_tdi_status_to_status(status);
+}
+
+switch_status_t switch_pd_srv6_ipv6_table_entry (switch_device_t device,
+    const switch_api_route_entry_t *api_route_entry,
+    bool entry_add, switch_route_v6_table_action_t action)
+{
+    tdi_status_t status;
+
+    tdi_id_t field_id = 0;
+    tdi_id_t action_id = 0;
+    tdi_id_t data_field_id = 0;
+
+    tdi_dev_id_t dev_id = device;
+
+    tdi_flags_hdl *flags_hdl = NULL;
+    tdi_target_hdl *target_hdl = NULL;
+    const tdi_device_hdl *dev_hdl = NULL;
+    tdi_session_hdl *session = NULL;
+    const tdi_info_hdl *info_hdl = NULL;
+    tdi_table_key_hdl *key_hdl = NULL;
+    tdi_table_data_hdl *data_hdl = NULL;
+    const tdi_table_hdl *table_hdl = NULL;
+    const tdi_table_info_hdl *table_info_hdl = NULL;
+    uint32_t network_byte_order[4];
+    int i;
+
+    switchlink_db_route_info_t route_info;
+    switchlink_db_status_t ret;
+    uint32_t intf_mask = 0xff;
+    uint32_t port_id;
+
+    VLOG_DBG("%s", __func__);
+
+    status = tdi_flags_create(0, &flags_hdl);
+    if (status != TDI_SUCCESS) {
+        VLOG_ERR("Failed to create flags handle, error: %d", status);
+        return switch_pd_tdi_status_to_status(status);
+    }
+
+    status = tdi_device_get(dev_id, &dev_hdl);
+    if (status != TDI_SUCCESS) {
+        VLOG_ERR("Failed to get device handle, error: %d", status);
+        return switch_pd_tdi_status_to_status(status);
+    }
+    status = tdi_target_create(dev_hdl, &target_hdl);
+    if (status != TDI_SUCCESS) {
+        VLOG_ERR("Failed to create target handle, error: %d", status);
+        return switch_pd_tdi_status_to_status(status);
+    }
+    status = tdi_session_create(dev_hdl, &session);
+    if (status != TDI_SUCCESS) {
+        VLOG_ERR("Failed to create tdi session, error: %d", status);
+        return status;
+    }
+
+    memset(&route_info, 0, sizeof(switchlink_db_route_info_t));
+    route_info.vrf_h = api_route_entry->vrf_handle;
+    for (i = 0; i < 4; i++)
+        network_byte_order[i] = ntohl(api_route_entry->ip_address.ip.v6addr.u.addr32[i]);
+    VLOG_DBG("ipv6 address is %x:%x:%x:%x \n", network_byte_order[0],network_byte_order[1],
+            network_byte_order[2],network_byte_order[3]);
+    ret = switchlink_db_route_ip6_get_info(network_byte_order, &route_info);
+    if (ret != SWITCHLINK_DB_STATUS_SUCCESS) {
+        VLOG_ERR("Get DB route info failed for vrf %lx, with address %x",
+                  route_info.vrf_h, route_info.ip_addr.ip.v6addr.s6_addr32[0]);
+        goto dealloc_handle_session;
+    }
+    port_id = (route_info.intf_h & intf_mask) - 1;
+    status = tdi_info_get(dev_id, PROGRAM_NAME, &info_hdl);
+    if (status != TDI_SUCCESS) {
+        VLOG_ERR("Failed to get tdi info handle, error: %d", status);
+        goto dealloc_handle_session;
+    }
+
+    status = tdi_table_from_name_get(info_hdl,
+                                     SRV6_ROUTE_V6_TABLE,
+                                     &table_hdl);
+    if (status != TDI_SUCCESS || !table_hdl) {
+        VLOG_ERR("Unable to get table handle for: %s, error: %d",
+                SRV6_ROUTE_V6_TABLE, status);
+        goto dealloc_handle_session;
+    }
+
+    status = tdi_table_key_allocate(table_hdl, &key_hdl);
+    if (status != TDI_SUCCESS) {
+        VLOG_ERR("Unable to allocate key handle for: %s, error: %d",
+                 SRV6_ROUTE_V6_TABLE, status);
+        goto dealloc_handle_session;
+    }
+
+    status = tdi_table_info_get(table_hdl, &table_info_hdl);
+    if (status != TDI_SUCCESS) {
+        VLOG_ERR("Unable to get table info handle for table, error: %d", status);
+        goto dealloc_handle_session;
+    }
+
+    status = tdi_key_field_id_get(table_info_hdl,
+                                  SRV6_ROUTE_V6_TABLE_KEY_IPV6_DST,
+                                  &field_id);
+    if (status != TDI_SUCCESS) {
+      VLOG_ERR("Unable to get field ID for key: %s, error: %d",
+               SRV6_ROUTE_V4_TABLE_KEY_IPV4_DST, status);
+        goto dealloc_handle_session;
+    }
+
+    /* Use LPM API for LPM match type*/
+    status = tdi_key_field_set_value_lpm_ptr(key_hdl, field_id,
+                                             (const uint8_t *)network_byte_order, 48,
+                                             sizeof(uint32_t) * 2);
+    if (status != TDI_SUCCESS) {
+        VLOG_ERR("Unable to set value for key ID: %d for ipv6_table, error: %d",
+                 field_id, status);
+        goto dealloc_handle_session;
+    }
+    if (entry_add) {
+        if (action == SWITCH_ACTION_LOCAL_IN_V6) {
+            VLOG_INFO("Populate local_in_v6 action in route_v6_table for "
+                      "route handle %x",
+                      (unsigned int) api_route_entry->route_handle);
+
+            status = tdi_action_name_to_id(table_info_hdl,
+                                           SRV6_ROUTE_V6_TABLE_ACTION_LOCAL_IN_V6,
+                                           &action_id);
+            if (status != TDI_SUCCESS) {
+                VLOG_ERR("Unable to get action allocator ID for: %s, error: %d",
+                         SRV6_ROUTE_V6_TABLE_ACTION_LOCAL_IN_V6, status);
+                goto dealloc_handle_session;
+            }
+
+            status = tdi_table_action_data_allocate(table_hdl, action_id, &data_hdl);
+            if (status != TDI_SUCCESS) {
+                VLOG_ERR("Unable to get action allocator for ID: %d, "
+                         "error: %d", action_id, status);
+                goto dealloc_handle_session;
+            }
+
+            status = tdi_data_field_id_with_action_get(table_info_hdl,
+                                                       SRV6_ACTION_LOCAL_IN_V6_PARAM_DST_MAC,
+                                                       action_id, &data_field_id);
+            if (status != TDI_SUCCESS) {
+            VLOG_ERR("Unable to get data field id param for: %s, error: %d",
+                     SRV6_ACTION_LOCAL_IN_V6_PARAM_DST_MAC, status);
+                goto dealloc_handle_session;
+            }
+
+            status = tdi_data_field_set_value_ptr(data_hdl, data_field_id,
+                                                  (const uint8_t *)
+                                                  route_info.mac_addr,
+                                                  SWITCH_MAC_LENGTH);
+            if (status != TDI_SUCCESS) {
+                VLOG_ERR("Unable to set action value for ID: %d, error: %d",
+                         data_field_id, status);
+                goto dealloc_handle_session;
+            }
+            VLOG_INFO("Successfully set local_in_v6 mac addr: %x:%x:%x:%x:%x:%x",
+                      route_info.mac_addr[0], route_info.mac_addr[1],
+                      route_info.mac_addr[2], route_info.mac_addr[3],
+                      route_info.mac_addr[4], route_info.mac_addr[5]);
+
+            status = tdi_data_field_id_with_action_get(table_info_hdl,
+                                                       SRV6_ACTION_LOCAL_IN_V6_PARAM_PORT,
+                                                       action_id, &data_field_id);
+            if (status != TDI_SUCCESS) {
+            VLOG_ERR("Unable to get data field id param for: %s, error: %d",
+                     SRV6_ACTION_LOCAL_IN_V6_PARAM_PORT, status);
+                goto dealloc_handle_session;
+            }
+
+            status = tdi_data_field_set_value(data_hdl, data_field_id, (switch_port_t)port_id);
+            if (status != TDI_SUCCESS) {
+                VLOG_ERR("Unable to set action value for ID: %d, error: %d",
+                         data_field_id, status);
+                goto dealloc_handle_session;
+            }
+            VLOG_INFO("Successfully set local_in_v6 port id %d", port_id);
+        }
+
+        status = tdi_table_entry_add(table_hdl, session, target_hdl,
+                                     flags_hdl, key_hdl, data_hdl);
+        if (status != TDI_SUCCESS) {
+          VLOG_ERR("Unable to add local_in_v6 entry, error: %d", status);
+            goto dealloc_handle_session;
+        }
+    } else {
+        /* Delete an entry from target */
+        VLOG_INFO("Delete route_v6_table entry");
+        status = tdi_table_entry_del(table_hdl, session, target_hdl,
+                                     flags_hdl, key_hdl);
+        if (status != TDI_SUCCESS) {
+            VLOG_ERR("Unable to delete route_v6_table entry, error: %d", status);
+            goto dealloc_handle_session;
+        }
+    }
+
+dealloc_handle_session:
+
+    status = tdi_switch_pd_deallocate_resources(flags_hdl, target_hdl,
+                                                key_hdl, data_hdl,
+                                                session, entry_add);
+    return switch_pd_tdi_status_to_status(status);
+}
+
+switch_status_t switch_pd_route_forward_v6_table_entry(
+    switch_device_t device,
+    const switch_pd_routing_info_t  *api_nexthop_pd_info,
+    bool entry_add) {
+
+    tdi_status_t status;
+
+    tdi_id_t field_id = 0;
+    tdi_id_t action_id = 0;
+    tdi_id_t data_field_id = 0;
+
+    tdi_dev_id_t dev_id = device;
+
+    tdi_flags_hdl *flags_hdl = NULL;
+    tdi_target_hdl *target_hdl = NULL;
+    const tdi_device_hdl *dev_hdl = NULL;
+    tdi_session_hdl *session = NULL;
+    const tdi_info_hdl *info_hdl = NULL;
+    tdi_table_key_hdl *key_hdl = NULL;
+    tdi_table_data_hdl *data_hdl = NULL;
+    const tdi_table_hdl *table_hdl = NULL;
+    const tdi_table_info_hdl *table_info_hdl = NULL;
+    uint32_t network_byte_order[4];
+    uint32_t rif_mask = 0xff;
+    uint32_t port_id;
+    int i;
+
+    VLOG_DBG("%s", __func__);
+
+    switchlink_db_nexthop_info_t nexthop_info;
+    memset(&nexthop_info, 0, sizeof(switchlink_db_nexthop_info_t));
+    status = switchlink_db_nexthop_handle_get_info(api_nexthop_pd_info->nexthop_handle,
+                                                   &nexthop_info);
+    port_id = (api_nexthop_pd_info->rif_handle & rif_mask) - 1;
+
+    status = tdi_flags_create(0, &flags_hdl);
+    if (status != TDI_SUCCESS) {
+        VLOG_ERR("Failed to create flags handle, error: %d", status);
+        return switch_pd_tdi_status_to_status(status);
+    }
+
+    status = tdi_device_get(dev_id, &dev_hdl);
+    if (status != TDI_SUCCESS) {
+        VLOG_ERR("Failed to get device handle, error: %d", status);
+        return switch_pd_tdi_status_to_status(status);
+    }
+
+    status = tdi_target_create(dev_hdl, &target_hdl);
+    if (status != TDI_SUCCESS) {
+        VLOG_ERR("Failed to create target handle, error: %d", status);
+        return switch_pd_tdi_status_to_status(status);
+    }
+
+    status = tdi_session_create(dev_hdl, &session);
+    if (status != TDI_SUCCESS) {
+        VLOG_ERR("Failed to create tdi session, error: %d", status);
+            return status;
+    }
+
+    status = tdi_info_get(dev_id, PROGRAM_NAME, &info_hdl);
+    if (status != TDI_SUCCESS) {
+        VLOG_ERR("Failed to get tdi info handle, error: %d", status);
+        goto dealloc_handle_session;
+    }
+
+    status = tdi_table_from_name_get(info_hdl,
+                                     SRV6_ROUTE_V6_TABLE,
+                                     &table_hdl);
+    if (status != TDI_SUCCESS || !table_hdl) {
+        VLOG_ERR("Unable to get table handle for: %s, error: %d",
+                 SRV6_ROUTE_V6_TABLE, status);
+        goto dealloc_handle_session;
+    }
+
+    status = tdi_table_key_allocate(table_hdl, &key_hdl);
+    if (status != TDI_SUCCESS) {
+        VLOG_ERR("Unable to allocate key handle for: %s, error: %d",
+                 SRV6_ROUTE_V6_TABLE, status);
+        goto dealloc_handle_session;
+    }
+
+    status = tdi_table_info_get(table_hdl, &table_info_hdl);
+    if (status != TDI_SUCCESS) {
+        VLOG_ERR("Unable to get table info handle for table, error: %d", status);
+        goto dealloc_handle_session;
+    }
+
+    status = tdi_key_field_id_get(table_info_hdl,
+                                  SRV6_ROUTE_V6_TABLE_KEY_IPV6_DST,
+                                  &field_id);
+    if (status != TDI_SUCCESS) {
+      VLOG_ERR("Unable to get field ID for key: %s, error: %d",
+               SRV6_ROUTE_V6_TABLE_KEY_IPV6_DST, status);
+        goto dealloc_handle_session;
+    }
+
+    /* Use LPM API for LPM match type*/
+    for (i = 0; i < 4; i++)
+        network_byte_order[i] = ntohl(nexthop_info.ip_addr.ip.v6addr.u.addr32[i]);
+    VLOG_DBG("ipv6 address is %x:%x:%x:%x \n", network_byte_order[0],network_byte_order[1],
+            network_byte_order[2],network_byte_order[3]);
+    status = tdi_key_field_set_value_lpm_ptr(key_hdl, field_id,
+                                             (const uint8_t *)network_byte_order, 48,
+                                             sizeof(uint32_t) * 2);
+    if (status != TDI_SUCCESS) {
+        VLOG_ERR("Unable to set value for key ID: %d for forward_v6,"
+                 " error: %d", field_id, status);
+goto dealloc_handle_session;
+    }
+
+    if (entry_add) {
+        /* Add an entry to target */
+        VLOG_INFO("Populate forward_v6 action in route_v6_table");
+
+        status = tdi_action_name_to_id(table_info_hdl,
+                                       SRV6_ROUTE_V6_TABLE_ACTION_FORWARD_V6,
+                                       &action_id);
+        if (status != TDI_SUCCESS) {
+            VLOG_ERR("Unable to get action allocator ID for: %s, error: %d",
+                     SRV6_ROUTE_V6_TABLE_ACTION_FORWARD_V6, status);
+            goto dealloc_handle_session;
+        }
+
+        status = tdi_table_action_data_allocate(table_hdl, action_id, &data_hdl);
+        if (status != TDI_SUCCESS) {
+            VLOG_ERR("Unable to get action allocator for ID: %d, "
+                     "error: %d", action_id, status);
+            goto dealloc_handle_session;
+        }
+
+        status = tdi_data_field_id_with_action_get(table_info_hdl,
+                                                   SRV6_ACTION_FORWARD_V6_PARAM_DST_MAC,
+                                                   action_id, &data_field_id);
+        if (status != TDI_SUCCESS) {
+            VLOG_ERR("Unable to get data field id param for: %s, error: %d",
+                     SRV6_ACTION_FORWARD_V6_PARAM_DST_MAC, status);
+            goto dealloc_handle_session;
+        }
+
+        status = tdi_data_field_set_value_ptr(data_hdl, data_field_id,
+                                              (const uint8_t *)
+                                              &api_nexthop_pd_info->dst_mac_addr.mac_addr,
+                                              SWITCH_MAC_LENGTH);
+        if (status != TDI_SUCCESS) {
+            VLOG_ERR("Unable to set action value for ID: %d, error: %d",
+                     data_field_id, status);
+            goto dealloc_handle_session;
+        }
+        VLOG_INFO("Successfully add mac: %x:%x:%x:%x:%x:%x", api_nexthop_pd_info->dst_mac_addr.mac_addr[0], api_nexthop_pd_info->dst_mac_addr.mac_addr[1],
+                                                             api_nexthop_pd_info->dst_mac_addr.mac_addr[2], api_nexthop_pd_info->dst_mac_addr.mac_addr[3],
+                                                             api_nexthop_pd_info->dst_mac_addr.mac_addr[4], api_nexthop_pd_info->dst_mac_addr.mac_addr[5]);
+
+        status = tdi_data_field_id_with_action_get(table_info_hdl,
+                                                   SRV6_ACTION_FORWARD_V6_PARAM_PORT,
+                                                   action_id, &data_field_id);
+        if (status != TDI_SUCCESS) {
+            VLOG_ERR("Unable to get data field id param for: %s, error: %d",
+                     SRV6_ACTION_FORWARD_V6_PARAM_PORT, status);
+                     goto dealloc_handle_session;
+        }
+
+        status = tdi_data_field_set_value(data_hdl, data_field_id,
+                                          (switch_port_t)port_id);
+        if (status != TDI_SUCCESS) {
+            VLOG_ERR("Unable to set action value for ID: %d, error: %d",
+                     data_field_id, status);
+            goto dealloc_handle_session;
+        }
+        VLOG_INFO("Successfully add port id %u", port_id);
+
+        status = tdi_table_entry_add(table_hdl, session, target_hdl,
+                                     flags_hdl, key_hdl, data_hdl);
+        if (status != TDI_SUCCESS) {
+          VLOG_ERR("Unable to add %s entry, error: %d",
+                   SRV6_ROUTE_V6_TABLE, status);
+            goto dealloc_handle_session;
+        }
+
+    } else {
+        /* Delete an entry from target */
+        VLOG_INFO("Delete route_v6_table entry");
+        status = tdi_table_entry_del(table_hdl, session, target_hdl,
+                                     flags_hdl, key_hdl);
+        if (status != TDI_SUCCESS) {
+            VLOG_ERR("Unable to delete %s entry, error: %d",
+                     SRV6_ROUTE_V6_TABLE, status);
+            goto dealloc_handle_session;
+        }
+  }
+
+dealloc_handle_session:
+
     status = tdi_switch_pd_deallocate_resources(flags_hdl, target_hdl,
                                                 key_hdl, data_hdl,
                                                 session, entry_add);

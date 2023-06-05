@@ -425,11 +425,18 @@ switch_status_t switch_api_l3_route_add(
                 ": %s\n", switch_error_to_string(status));
       return status;
     }
-  } else if (api_route_entry->ip_address.prefix_len == 32){
+  } else if (api_route_entry->ip_address.type == 0 && api_route_entry->ip_address.prefix_len == 32){
     status = switch_pd_srv6_ipv4_table_entry(device, api_route_entry, true,
                                              SWITCH_ACTION_LOCAL_IN_V4);
     if(status != SWITCH_STATUS_SUCCESS) {
       VLOG_ERR("bgp_vxlan_srv6 route_v4 table update failed");
+      return status;
+    }
+  } else if (api_route_entry->ip_address.type == 1 && api_route_entry->ip_address.prefix_len > 32){
+    status = switch_pd_srv6_ipv6_table_entry(device, api_route_entry, true,
+                                             SWITCH_ACTION_LOCAL_IN_V6);
+    if(status != SWITCH_STATUS_SUCCESS) {
+      VLOG_ERR("bgp_vxlan_srv6 route_v6 table update failed");
       return status;
     }
   }
@@ -533,6 +540,11 @@ switch_status_t switch_api_l3_route_delete(switch_device_t device,
                                              SWITCH_ACTION_LOCAL_IN_V4);
     if(status != SWITCH_STATUS_SUCCESS)
       VLOG_ERR("bgp_vxlan_srv6 route_v4 table delete failed");
+
+    status = switch_pd_srv6_ipv6_table_entry(device, &api_route_info, false,
+                                             SWITCH_ACTION_LOCAL_IN_V6);
+    if(status != SWITCH_STATUS_SUCCESS)
+      VLOG_ERR("bgp_vxlan_srv6 route_v6 table delete failed");
 
   }
 

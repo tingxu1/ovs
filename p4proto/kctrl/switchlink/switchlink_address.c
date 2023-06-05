@@ -70,10 +70,6 @@ void process_address_msg(struct nlmsghdr *nlmsg, int type) {
        addrmsg->ifa_scope,
        addrmsg->ifa_index);
 
-  if (addrmsg->ifa_family == AF_INET6) {
-    VLOG_DBG("Ignoring IPv6 addresses, as supported is not available");
-    return;
-  }
   if ((addrmsg->ifa_family != AF_INET) && (addrmsg->ifa_family != AF_INET6)) {
     // an address family that we are not interested in, skip
     return;
