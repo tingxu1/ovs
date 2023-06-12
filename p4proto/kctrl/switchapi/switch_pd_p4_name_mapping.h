@@ -198,6 +198,25 @@ extern "C" {
         "$MAX_GROUP_SIZE"
 #define LNW_SELECTOR_ACTION_ID \
         0
+
+/* BGP Vxlan SRv6 */
+#define SRV6_ROUTE_V4_TABLE \
+        "ingress.route_v4_table"
+#define SRV6_ROUTE_V4_TABLE_KEY_IPV4_DST \
+        "hdr.outer_ipv4.dst_addr"
+#define SRV6_ROUTE_V4_TABLE_ACTION_FORWARD_V4 \
+        "ingress.forward_v4"
+#define SRV6_ROUTE_V4_TABLE_ACTION_LOCAL_IN_V4 \
+        "ingress.local_in_v4"
+#define SRV6_ACTION_FORWARD_V4_PARAM_DST_MAC \
+        "dst_mac"
+#define SRV6_ACTION_FORWARD_V4_PARAM_PORT \
+        "port"
+#define SRV6_ACTION_LOCAL_IN_V4_PARAM_DST_MAC \
+        "dst_mac"
+#define SRV6_ACTION_LOCAL_IN_V4_PARAM_PORT \
+        "port"
+
 #ifdef __cplusplus
 }
 #endif

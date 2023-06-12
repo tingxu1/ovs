@@ -238,14 +238,6 @@ void neigh_create(switchlink_handle_t vrf_h,
     return;
   }
 
-  VLOG_INFO("Create a neighbor entry: 0x%x", ipaddr->ip.v4addr.s_addr);
-  if (switchlink_neighbor_create(&neigh_info) == -1) {
-    if (!nhop_available) {
-        switchlink_nexthop_delete(nexthop_info.nhop_h);
-    }
-    return;
-  }
-
   switchlink_db_neighbor_add(&neigh_info);
 
   nexthop_info.using_by |= SWITCHLINK_NHOP_FROM_NEIGHBOR;
@@ -255,8 +247,17 @@ void neigh_create(switchlink_handle_t vrf_h,
     switchlink_db_nexthop_update_using_by(&nexthop_info);
   }
 
+  VLOG_INFO("Create a neighbor entry: 0x%x", ipaddr->ip.v4addr.s_addr);
+  if (switchlink_neighbor_create(&neigh_info) == -1) {
+    if (!nhop_available) {
+        switchlink_nexthop_delete(nexthop_info.nhop_h);
+    }
+    switchlink_db_neighbor_delete(&neigh_info);
+    return;
+  }
+
   // add a host route
-  route_create(g_default_vrf_h, ipaddr, ipaddr, 0, intf_h);
+  route_create(g_default_vrf_h, ipaddr, ipaddr, 0, intf_h, NULL);
 }
 
 /* TODO: P4-OVS: Dummy Processing of Netlink messages received
